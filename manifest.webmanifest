@@ -1,0 +1,10 @@
+{
+  "name": "Simulador MIR — Banco privado",
+  "short_name": "Simulador MIR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6fa",
+  "theme_color": "#102a54",
+  "description": "Simulador MIR con bancos de preguntas importados localmente"
+}
