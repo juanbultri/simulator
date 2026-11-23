@@ -1,27 +1,25 @@
-# Rugby IQ — Reglamentación para equipos de rugby
+# Rugby IQ v3.2 — Liga por apodos, sin correo
 
-Quiz interactivo (92 situaciones, 3 niveles), con entrenamiento libre, dibujos de cancha y liga semanal.
+Aplicación offline-first con 92 situaciones y competición semanal. Reutiliza `juanbultri/simulator` (GitHub Pages) y el proyecto Supabase `jxqqiwjjwkmuyjefcwpz`.
 
-Este repositorio `juanbultri/simulator` fue reutilizado para Rugby IQ, sustituyendo al antiguo simulador MIR.
-La aplicación utiliza **GitHub Pages** en `https://juanbultri.github.io/simulator/` y **Supabase Free** para cuentas y clasificaciones.
+## Lo que cambia
+- No se solicitan correos, contraseñas ni códigos del club.
+- Cada jugador usa un apodo. La aplicación crea automáticamente una sesión anónima de Supabase cuando participa por primera vez.
+- Se mantienen las reglas de puntuación verificadas por la base de datos, el historial y las rondas semanales.
+- Cada cuenta anónima se conserva en el navegador. Borrar datos del sitio o cambiar de dispositivo puede impedir recuperar la cuenta.
 
-## Incluye
-- Entrenamiento libre con corrección inmediata, explicación y ley aplicable.
-- Liga semanal, diez preguntas por nivel con corrección al finalizar.
-- Progreso local y resultados sincronizados para miembros del club.
-- Diseño móvil apto para Safari de iPhone/iPad.
+## ÚNICO ajuste manual requerido en Supabase
 
-## Antes de invitar a jugadores
-1. Comprobar que GitHub Pages usa la rama `master` y directorio `/`.
-2. En Supabase, configurar el correo electrónico con códigos OTP (plantilla `{{ .Token }}`) y probar el acceso con dos usuarios reales.
-3. Completar el contacto del responsable, privacidad y el período de conservación de los datos.
-4. Entregar el código de invitación del club **de forma privada**; no subirlo a GitHub.
+Entrar a [Supabase Authentication → Providers](https://supabase.com/dashboard/project/jxqqiwjjwkmuyjefcwpz/auth/providers) y activar **Allow anonymous sign-ins** (Anonymous Sign-Ins). No habilita correos y no requiere SMTP. Si ya está activo, no hace falta cambiar nada.
 
-`config.js` solo contiene una clave **publicable** (no privilegiada) de Supabase. No publicar `service_role`, secretos ni códigos de invitación.
+La migración `join_club_nickname` ya está aplicada al proyecto Supabase. El anterior RPC `join_club` con código de invitación se revocó para usuarios autenticados.
 
-## Publicación
+## Para publicar en el repo actual
 
-Para reciclar el repositorio original de MIR en vez de crear otro, ejecutá `Reemplazar_MIR_con_RugbyIQ.ps1` desde PowerShell en Windows (requiere Git y GitHub CLI). Conserva el historial de commits. No hace un push forzado.
+Ejecutar desde PowerShell `Actualizar_RugbyIQ_sin_correo.ps1` con Git y GitHub CLI. El script verifica que el repositorio siga siendo Rugby IQ, actualiza solo archivos de aplicación, conserva el historial y usa un push normal sin forzar.
 
-## Fuente de reglas
-Preguntas originales basadas en las Leyes de World Rugby; considerar las variantes de cada unión/competición y revisión arbitral antes de usar en una liga competitiva.
+## Privacidad y seguridad
+
+No hay identidad real verificada: una persona puede crear un nuevo jugador desde otro navegador. El ranking sirve para competir entre amigos, no para premios sujetos a controles estrictos. No publicar códigos secretos ni `service_role`. La clave `sb_publishable_*` de `config.js` es pública por diseño.
+
+Antes de invitar a todo el club: revisar política de privacidad y probar dos usuarios en navegadores distintos.

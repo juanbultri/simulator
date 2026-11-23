@@ -9,6 +9,7 @@ const URL_BASE = String(CONFIG.SUPABASE_URL||'').replace(/\/+$/,'');
 const PUBLIC_KEY = String(CONFIG.SUPABASE_ANON_KEY||'');
 const cloudReady = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(URL_BASE)&&PUBLIC_KEY.length>20;
 const LOCAL_KEY='rugby_iq_v3_rounds'; const AUTH_KEY='rugby_iq_v3_session';
+let editingNickname=false;
 let state={tab:'train',trainLevel:1,leagueLevel:1,boardLevel:1,session:null,profile:null,round:[],answers:[],pos:0,pick:null,checked:false,mode:'train',records:[],lastResult:null,busy:false,challenge:null};
 function toast(message){$('toast').textContent=message;$('toast').classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').classList.add('hidden'),3500);}
 function show(id){document.querySelectorAll('.view').forEach(e=>e.classList.toggle('hidden',e.id!==id));window.scrollTo({top:0,behavior:'instant'});}
@@ -19,14 +20,22 @@ function populateTopics(){const topics=[...new Set(DATA.filter(q=>q.level===stat
 function readLocal(){try{const v=JSON.parse(localStorage.getItem(LOCAL_KEY)||'[]');return Array.isArray(v)?v:[];}catch{return []}}
 function writeLocal(row){try{localStorage.setItem(LOCAL_KEY,JSON.stringify([row,...readLocal()].slice(0,150)));}catch(e){toast('No se pudo guardar el historial local.');}renderStats();}
 function renderStats(){const items=readLocal(),total=items.reduce((n,r)=>n+(r.total||0),0),good=items.reduce((n,r)=>n+(r.correct||0),0);$('totalRounds').textContent=items.length;$('totalAnswered').textContent=total;$('totalAccuracy').textContent=total?Math.round(100*good/total)+'%':'—';}
-function refreshLeagueNotice(){if(!cloudReady){hint('leagueAlert','Modo Liga pendiente de activar: hay que configurar Supabase en config.js. Mientras tanto, podés entrenar gratis y guardar progreso en este dispositivo.');return;}if(!state.session){hint('leagueAlert','Iniciá sesión con tu correo para entrar en la liga. El entrenador comparte el código privado del club.');return;}if(!state.profile){hint('leagueAlert','Ya verificaste tu correo. Falta elegir tu apodo y usar el código del club desde Mi perfil.');return;}hint('leagueAlert',`¡Bienvenido/a, ${state.profile.nickname}! Elegí un nivel. Una única ronda puntuable de 10 preguntas por semana y nivel.`,'success');}
-function refreshAccountUI(){if(!cloudReady){hint('accountMessage','La nube todavía no está configurada. El entrenador debe completar config.js y ejecutar los SQL de Supabase. El entrenamiento local sigue disponible.');$('loginForm').classList.add('hidden');$('profileForm').classList.add('hidden');$('profileCard').classList.add('hidden');$('syncStatus').textContent='● Progreso local';refreshLeagueNotice();return;}
- const logged=Boolean(state.session?.access_token),joined=Boolean(state.profile);
- $('loginForm').classList.toggle('hidden',logged);$('profileForm').classList.toggle('hidden',!logged||joined);$('profileCard').classList.toggle('hidden',!logged||!joined);
- if(logged){$('signedEmail').textContent=state.session.user?.email||'tu correo';$('nickname').value=state.profile?.nickname||'';}
- if(joined){$('profileName').textContent=state.profile.nickname;}
- hint('accountMessage',joined?'Sesión activa. La liga guarda tus resultados en Supabase.':logged?'Elegí tu apodo e introducí el código de invitación del club para participar.':'Te enviamos un código de acceso a tu correo, sin contraseña.');
- $('syncStatus').textContent=joined?'● Liga conectada':'● Progreso local';refreshLeagueNotice();}
+function refreshLeagueNotice(){
+ if(!cloudReady){hint('leagueAlert','La liga necesita Supabase. El entrenamiento local funciona sin conexión.');return;}
+ if(!state.profile){hint('leagueAlert','Entrá con un apodo desde Mi perfil para participar. No pedimos correo ni contraseña.');return;}
+ hint('leagueAlert',`¡Bienvenido/a, ${state.profile.nickname}! Una ronda puntuable de 10 preguntas por semana y nivel.`,'success');
+}
+function refreshAccountUI(){
+ if(!cloudReady){hint('accountMessage','La conexión a Supabase no está disponible. Podés seguir entrenando localmente.');$('profileForm').classList.add('hidden');$('profileCard').classList.add('hidden');$('syncStatus').textContent='● Progreso local';refreshLeagueNotice();return;}
+ const joined=Boolean(state.profile);
+ $('profileForm').classList.toggle('hidden',joined&&!editingNickname);
+ $('profileCard').classList.toggle('hidden',!joined);
+ if(joined){$('profileName').textContent=state.profile.nickname;if(!editingNickname)$('nickname').value=state.profile.nickname;}
+ $('saveProfile').textContent=joined?'Guardar nuevo apodo':'Entrar con mi apodo →';
+ hint('accountMessage',joined?'Tu apodo está registrado. El dispositivo recuerda tu acceso.':'Elegí un apodo. Supabase creará una sesión anónima, sin correo ni contraseña.');
+ $('syncStatus').textContent=joined?'● Liga conectada':'● Elegí tu apodo';
+ refreshLeagueNotice();
+}
 function loadSession(){try{const s=JSON.parse(localStorage.getItem(AUTH_KEY)||'null');state.session=s?.access_token?s:null;}catch{state.session=null}}
 function saveSession(s){state.session=s;if(s){try{localStorage.setItem(AUTH_KEY,JSON.stringify(s));}catch{}}else{localStorage.removeItem(AUTH_KEY);state.profile=null;}refreshAccountUI();}
 function apiError(data,status){return Error(data?.message||data?.msg||data?.error_description||data?.error||`Error HTTP ${status}`)}
@@ -45,13 +54,31 @@ async function refreshSession(){const s=state.session;if(!s?.refresh_token)throw
 async function rpc(name,params={}){return api('/rest/v1/rpc/'+name,{method:'POST',body:params});}
 async function fetchProfile(){if(!state.session?.user?.id){state.profile=null;return;}const id=encodeURIComponent(state.session.user.id);const rows=await api(`/rest/v1/profiles?select=id,nickname&id=eq.${id}&limit=1`);state.profile=Array.isArray(rows)?rows[0]||null:null;refreshAccountUI();}
 async function cloudStats(){if(!state.profile)return;try{let d=await rpc('get_my_stats');$('cloudSummary').textContent=`Nube: ${d.practice_rounds||0} entrenamientos y ${d.weekly_rounds||0} desafíos semanales guardados. El panel de arriba muestra tus rondas locales de este navegador.`;}catch(e){$('cloudSummary').textContent='No se pudieron cargar las estadísticas de la nube: '+e.message;}}
-async function sendCode(){const email=$('loginEmail').value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('Ingresá un correo válido.');return;}
- try{$('sendCode').disabled=true;await api('/auth/v1/otp',{method:'POST',body:{email,create_user:true},auth:false});$('codePanel').classList.remove('hidden');toast('Revisá tu correo e introducí el código.');}catch(e){toast('No se pudo enviar el código: '+e.message);}finally{$('sendCode').disabled=false;}}
-async function verifyCode(){const email=$('loginEmail').value.trim().toLowerCase(),token=$('loginCode').value.replace(/\s/g,'');if(!token){toast('Escribí el código recibido.');return;}
- try{$('verifyCode').disabled=true;const r=await api('/auth/v1/verify',{method:'POST',body:{email,token,type:'email'},auth:false});if(!r.access_token)throw Error('No recibimos una sesión válida.');saveSession({...r,expires_at:r.expires_at||Math.floor(Date.now()/1000)+(r.expires_in||3600)});await fetchProfile();await cloudStats();toast('Sesión iniciada.');}catch(e){toast('No se pudo validar el código: '+e.message);}finally{$('verifyCode').disabled=false;}}
-async function saveProfile(){const nickname=$('nickname').value.trim(),code=$('inviteCode').value.trim();if(nickname.length<3||nickname.length>24){toast('El apodo debe tener entre 3 y 24 caracteres.');return;}if(!code){toast('Necesitás el código de invitación del club.');return;}
- try{$('saveProfile').disabled=true;await rpc('join_club',{p_nickname:nickname,p_invite_code:code});$('inviteCode').value='';await fetchProfile();await cloudStats();toast('¡Bienvenido/a a la liga!');show('home');setTab('league');}catch(e){toast('No fue posible entrar: '+e.message);}finally{$('saveProfile').disabled=false;}}
-async function signOut(){if(state.session?.access_token){try{await api('/auth/v1/logout',{method:'POST'});}catch{}}saveSession(null);$('cloudSummary').textContent='Progreso local disponible. Iniciá sesión para guardar resultados también en la nube.';show('home');}
+async function saveProfile(){
+ const nickname=$('nickname').value.trim();
+ if(nickname.length<3||nickname.length>24){toast('El apodo debe tener entre 3 y 24 caracteres.');return;}
+ if(/[<>\x00-\x1f\x7f]/.test(nickname)){toast('El apodo tiene caracteres no permitidos.');return;}
+ try{
+  $('saveProfile').disabled=true;
+  if(!state.session?.access_token){
+   // Supabase Auth anonymous sign-up: ninguna dirección de correo ni datos personales.
+   const guest=await api('/auth/v1/signup',{method:'POST',body:{data:{}},auth:false});
+   if(!guest?.access_token||!guest?.user?.id)throw Error('No se pudo crear el perfil anónimo. Activá Anonymous Sign-Ins en Supabase Auth → Providers.');
+   saveSession({...guest,expires_at:guest.expires_at||Math.floor(Date.now()/1000)+(guest.expires_in||3600)});
+  }
+  await rpc('join_club_nickname',{p_nickname:nickname});
+  editingNickname=false;
+  await fetchProfile();await cloudStats();
+  toast('¡Bienvenido/a a la liga, '+nickname+'!');show('home');setTab('league');
+ }catch(e){toast('No se pudo registrar el apodo: '+e.message);}
+ finally{$('saveProfile').disabled=false;}
+}
+async function signOut(){
+ if(!confirm('Si olvidás este perfil, no podrás recuperar esta cuenta anónima ni sus resultados desde este dispositivo. ¿Continuar?'))return;
+ if(state.session?.access_token){try{await api('/auth/v1/logout',{method:'POST'});}catch{}}
+ editingNickname=false;saveSession(null);$('nickname').value='';
+ $('cloudSummary').textContent='El progreso local sigue disponible. Elegí un apodo para volver a la liga.';show('home');
+}
 function current(){return state.round[state.pos]}
 function startRound(mode,questions,challenge=null){state.mode=mode;state.round=questions;state.answers=Array(questions.length).fill(null);state.pos=0;state.pick=null;state.checked=false;state.records=[];state.challenge=challenge;renderQuestion();show('quiz');}
 function renderQuestion(){const q=current(),i=state.pos,train=state.mode==='train';if(!q)return;state.checked=train&&Boolean(state.records[i]);state.pick=state.answers[i];$('quizMode').textContent=train?'📖 Entrenamiento':'🏆 Desafío semanal';$('quizLevel').textContent='Nivel '+q.level;$('quizTopic').textContent=q.topic;$('quizCount').textContent=(i+1)+' / '+state.round.length;$('progressFill').style.width=((i)/state.round.length*100)+'%';$('quizPrompt').textContent=train?'¿Qué harías en esta situación?':'Elegí una opción. La corrección llega al final.';$('scene').textContent=q.scene;
@@ -96,8 +123,8 @@ async function showHistory(){
  const rows=readLocal();
  $('historyRows').innerHTML=rows.length?rows.map(r=>`<div class="history-row"><span>${esc(new Date(r.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}))} · Nivel ${esc(r.level)}</span><strong>${esc(r.correct)} / ${esc(r.total)} correctas</strong></div>`).join(''):'<p class="muted">Todavía no completaste ningún entrenamiento en este dispositivo.</p>';
  show('history');
- if(!cloudReady || !state.session){$('cloudHistoryRows').innerHTML='<p class="muted">Iniciá sesión con tu correo para consultar el historial guardado en el club.</p>';return;}
- if(!state.profile){$('cloudHistoryRows').innerHTML='<p class="muted">Entrá al club con el código de invitación para consultar tu historial sincronizado.</p>';return;}
+ if(!cloudReady || !state.session){$('cloudHistoryRows').innerHTML='<p class="muted">Entrá con un apodo para consultar el historial de este dispositivo en la nube.</p>';return;}
+ if(!state.profile){$('cloudHistoryRows').innerHTML='<p class="muted">Elegí un apodo en Mi perfil para consultar el historial sincronizado.</p>';return;}
  $('cloudHistoryRows').innerHTML='<p class="muted">Cargando historial sincronizado…</p>';
  try{
   const [practice,weekly]=await Promise.all([
@@ -116,7 +143,7 @@ $('startTrain').onclick=startTraining;$('startLeague').onclick=startLeague;$('ch
 $('previous').onclick=()=>{if(state.pos>0){state.pos--;renderQuestion();}};
 $('quitQuiz').onclick=()=>{if(confirm('¿Abandonar? El progreso de esta ronda no se contará.'))show('home');};
 $('goAccount').onclick=()=>show('account');document.querySelectorAll('[data-home]').forEach(b=>b.onclick=()=>show('home'));
-$('sendCode').onclick=sendCode;$('verifyCode').onclick=verifyCode;$('saveProfile').onclick=saveProfile;$('logoutOne').onclick=signOut;$('logoutTwo').onclick=signOut;
+$('saveProfile').onclick=saveProfile;$('logoutTwo').onclick=signOut;$('editNickname').onclick=()=>{editingNickname=true;refreshAccountUI();$('nickname').focus();};
 $('viewBoard').onclick=async()=>{state.boardLevel=state.leagueLevel;await showLeaderboard();};document.querySelectorAll('[data-boardlevel]').forEach(b=>b.onclick=()=>{state.boardLevel=Number(b.dataset.boardlevel);showLeaderboard();});
 $('repeatWrong').onclick=()=>{let wrong=state.records.filter(r=>r.choice!==r.q.answer).map(r=>r.q);if(!wrong.length)return;state.trainLevel=wrong[0].level;startRound('train',wrong);};$('backHome').onclick=()=>{renderStats();show('home');};$('openHistory').onclick=showHistory;
 $('clearLocal').onclick=()=>{if(confirm('¿Borrar el historial de este dispositivo? Los registros ya sincronizados a la nube no se borrarán.')){localStorage.removeItem(LOCAL_KEY);renderStats();showHistory();}};

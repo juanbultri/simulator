@@ -1,4 +1,4 @@
-const CACHE='rugby-iq-v3.1-simulator-1';
+const CACHE='rugby-iq-v3.2-simulator-no-email-1';
 const FILES=['./','./index.html','./style.css','./app.js','./questions.js','./config.js','./manifest.webmanifest','./privacy.html','./assets/icon-192.png','./assets/icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(
  caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())
