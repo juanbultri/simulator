@@ -1,26 +1,27 @@
-# Simulador MIR v1.5 — aplicación sin contenido
+# Rugby IQ — Reglamentación para equipos de rugby
 
-Este repositorio contiene **solo el motor** del simulador. No contiene preguntas, imágenes, respuestas ni comentarios de terceros.
+Quiz interactivo (92 situaciones, 3 niveles), con entrenamiento libre, dibujos de cancha y liga semanal.
 
-## Publicación en GitHub Pages
+Este repositorio `juanbultri/simulator` fue reutilizado para Rugby IQ, sustituyendo al antiguo simulador MIR.
+La aplicación utiliza **GitHub Pages** en `https://juanbultri.github.io/simulator/` y **Supabase Free** para cuentas y clasificaciones.
 
-1. Creá un repositorio nuevo para este código.
-2. Subí únicamente `index.html`, `manifest.webmanifest`, `sw.js` y este README.
-3. En Settings → Pages, elegí Deploy from a branch, `main` y `/ (root)`.
-4. Abrí la URL de GitHub Pages desde Safari en el iPad.
-5. Importá un archivo JSON local desde Archivos. Usá solo materiales que tengas derecho a utilizar.
-6. En Safari, Compartir → Añadir a pantalla de inicio para instalar el acceso directo.
+## Incluye
+- Entrenamiento libre con corrección inmediata, explicación y ley aplicable.
+- Liga semanal, diez preguntas por nivel con corrección al finalizar.
+- Progreso local y resultados sincronizados para miembros del club.
+- Diseño móvil apto para Safari de iPhone/iPad.
 
-No subas `Banco_MIR_PRIVADO_v1.5.json`, PDFs originales ni HTML de versiones anteriores: contienen material de terceros. El banco se almacena en IndexedDB del navegador y no se envía al servidor. Safari puede eliminar datos de sitios por políticas de almacenamiento; guardá una copia del JSON fuera del navegador.
+## Antes de invitar a jugadores
+1. Comprobar que GitHub Pages usa la rama `master` y directorio `/`.
+2. En Supabase, configurar el correo electrónico con códigos OTP (plantilla `{{ .Token }}`) y probar el acceso con dos usuarios reales.
+3. Completar el contacto del responsable, privacidad y el período de conservación de los datos.
+4. Entregar el código de invitación del club **de forma privada**; no subirlo a GitHub.
 
-## Modos
+`config.js` solo contiene una clave **publicable** (no privilegiada) de Supabase. No publicar `service_role`, secretos ni códigos de invitación.
 
-- Práctica con corrección inmediata.
-- Simulacro configurable (cantidad/año/especialidad) con corrección al final.
-- Simulacro completo: 200+10 reservas, 4h30, +3/−1/0.
+## Publicación
 
-## Estructura esperada del JSON
+Para reciclar el repositorio original de MIR en vez de crear otro, ejecutá `Reemplazar_MIR_con_RugbyIQ.ps1` desde PowerShell en Windows (requiere Git y GitHub CLI). Conserva el historial de commits. No hace un push forzado.
 
-Objeto `{"format":"mir-bank-v1","questions":[...]}`. Cada pregunta contiene `question` (texto), `options` (4 textos), `answer` (1–4), `explanation` (texto), `year` (número) y `subject` (texto). Opcional: `id`, `number`, `topic`, `page`, `figures`.
-
-El cronómetro empieza al iniciar cada simulacro. La nota presentada es orientativa, no una baremación MIR oficial.
+## Fuente de reglas
+Preguntas originales basadas en las Leyes de World Rugby; considerar las variantes de cada unión/competición y revisión arbitral antes de usar en una liga competitiva.

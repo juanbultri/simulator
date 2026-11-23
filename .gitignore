@@ -1,0 +1,8 @@
+# No publicar claves de administración ni datos personales
+.env
+.env.*
+*.sql
+supabase/
+secrets/
+*.log
+.DS_Store
